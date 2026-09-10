@@ -1,0 +1,22 @@
+import {auth,db,getDB,saveStudent,nextStudentId,nextCoachId,esc,uploadFile,saveUserProfile,saveCoach} from "./app.js";
+import {createUserWithEmailAndPassword,signInWithEmailAndPassword} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import {get,ref} from "https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js";
+
+const branchSel=document.querySelector("#regBranch"),academySel=document.querySelector("#regAcademy"),coachBranch=document.querySelector("#coachBranch"),coachAcademy=document.querySelector("#coachAcademy");
+const defaultBranches=["Panvel","Navi Mumbai","Alibag"], defaultAcademies=["RTA Main Academy","Raigad Martial Arts Academy"];
+const fill=(el,items)=>{if(el)el.innerHTML=items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join("")};
+fill(branchSel,defaultBranches); fill(coachBranch,defaultBranches); fill(academySel,defaultAcademies); fill(coachAcademy,defaultAcademies);
+(async()=>{try{const d=await getDB(); const branches=Object.values(d.branches||{}),academies=Object.values(d.academies||{}); if(branches.length){fill(branchSel,branches);fill(coachBranch,branches)} if(academies.length){fill(academySel,academies);fill(coachAcademy,academies)}}catch(e){console.warn("Could not load branch/academy data",e)}})();
+let loginRole="student",registerRole="student";
+const loginSubmit=document.querySelector("#loginSubmit");
+const setLoginRole=role=>{loginRole=role;document.querySelectorAll("[data-role]").forEach(x=>x.classList.toggle("active",x.dataset.role===role));loginSubmit.textContent=`Login as ${role[0].toUpperCase()+role.slice(1)}`};
+const setRegisterRole=role=>{registerRole=role;document.querySelectorAll("[data-register-role]").forEach(x=>x.classList.toggle("active",x.dataset.registerRole===role));document.querySelector("#studentRegisterForm").classList.toggle("hidden",role!=="student");document.querySelector("#coachRegisterForm").classList.toggle("hidden",role!=="coach")};
+
+document.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>setLoginRole(b.dataset.role));
+document.querySelectorAll("[data-register-role]").forEach(b=>b.onclick=()=>setRegisterRole(b.dataset.registerRole));
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelector("#loginForm").classList.toggle("hidden",b.dataset.tab!=="login");document.querySelector("#registerForm").classList.toggle("hidden",b.dataset.tab!=="register")});
+
+const goByRole=u=>location.href=u.role==="admin"?"admin.html":u.role==="coach"?"coach.html":"student.html";
+document.querySelector("#loginInnerForm").onsubmit=async e=>{e.preventDefault();const loginMsg=document.querySelector("#loginMsg");loginMsg.textContent="Signing in…";loginMsg.className="message";try{const email=loginEmail.value.trim().toLowerCase(),cred=await signInWithEmailAndPassword(auth,email,loginPassword.value);const d=await getDB();const all=[...(d.coaches||[]),...(d.students||[]),...Object.values(d.admin||{})];const u=all.find(x=>String(x.email||"").toLowerCase()===email&&x.uid===cred.user.uid)||all.find(x=>x.uid===cred.user.uid);if(!u||!u.role)throw new Error("No RTA role profile found for this account. Ask Admin to create/fix the account.");if(loginRole!==u.role)throw new Error(`This account is registered as ${u.role}. Please choose ${u.role} Login.`);goByRole(u)}catch(err){loginMsg.textContent=err.code?.includes("invalid-credential")?"Invalid email or password.":err.message;loginMsg.className="message danger"}};
+
+document.querySelector("#studentRegisterForm").classList.toggle("hidden",role!=="student");document.querySelector("#coachRegisterForm").onsubmit=async e=>{e.preventDefault();const coachMsg=document.querySelector("#coachMsg"); coachMsg.textContent="Creating coach account…";coachMsg.className="message";try{const email=coachEmail.value.trim().toLowerCase(),cred=await createUserWithEmailAndPassword(auth,email,coachPassword.value),d=await getDB(),cid=nextCoachId(d),coach={id:cred.user.uid,uid:cred.user.uid,coachId:cid,name:coachName.value.trim(),mobile:coachMobile.value.trim(),email,branch:coachBranch.value,academy:coachAcademy.value,role:"coach",createdAt:new Date().toISOString()};await saveCoach(coach);location.href="coach.html"}catch(err){coachMsg.textContent=err.code==="auth/email-already-in-use"?"Email already registered.":err.message;coachMsg.className="message danger"}};

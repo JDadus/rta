@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "admin": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admin').child(auth.uid).exists())",
+        ".write": "auth != null && root.child('admin').child(auth.uid).exists()"
+      }
+    },
+    "coaches": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admin').child(auth.uid).exists())",
+        ".write": "auth != null && (root.child('admin').child(auth.uid).exists() || (auth.uid === $uid && !data.exists()))"
+      }
+    },
+    "students": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('admin').child(auth.uid).exists() || data.child('coachId').val() === auth.uid)",
+        ".write": "auth != null && (root.child('admin').child(auth.uid).exists() || (auth.uid === $uid && !data.exists()) || (data.child('coachId').val() === auth.uid && newData.child('coachId').val() === auth.uid))"
+      }
+    },
+    "settings": {
+      ".read": true,
+      ".write": "auth != null && root.child('admin').child(auth.uid).exists()"
+    }
+  }
+}
